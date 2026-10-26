@@ -12,20 +12,15 @@ flowchart LR
   Next[Next.js on Docker/VPS]
   GAS[Apps Script doGet]
   Sheet[Google Sheet SoT]
-  CTC[ctcLink ClassSearch]
-  RMP[RateMyProfessors]
 
   Student -->|Edplan PDF + prefs| Next
   Next -->|SHEETS_API_URL ~10m revalidate| GAS
-  GAS --> Sheet
-  CTC -->|SyncSections upsert| Sheet
-  RMP -->|SyncRmp| Sheet
-  Sheet -->|RecomputeRankings| Sheet
+  GAS -->|Winter/Spring tabs| Sheet
 ```
 
-- **Spreadsheet** is the system of record ([live sheet](https://docs.google.com/spreadsheets/d/1bvZht035ZNWhicZw5ozdQ9LzbCvJ95H0ynaGMxQqf1g/edit)).
-- **Apps Script** syncs ctcLink + RMP and exposes cached JSON via `doGet`.
-- **Next.js** never scrapes ctcLink/RMP in production; it re-ranks sheet `Rankings` with the student’s preferences.
+- **Spreadsheet** is the system of record ([Winter + Spring 2027 + RMP](https://docs.google.com/spreadsheets/d/13iJQzRF4nPt-ri33CZkkJs57YtpEzpR3nh8CMverTjw/edit)).
+- **Apps Script** is a cached JSON bridge over denormalized term tabs (`doGet?term=2271&courses=…`).
+- **Next.js** never scrapes ctcLink/RMP; it re-ranks using RMP columns on each section (confirmed match preferred; Staff/TBA + inferred ranked lower and never treated as confirmed).
 
 ## Quick start
 
@@ -39,27 +34,27 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). Without `SHEETS_API_URL`, recommendations use `fixtures/sheets-api-*.json`.
 
 ```bash
-cp .env.example .env.local
-# set SHEETS_API_URL after deploying Apps Script — see SHEETS_SETUP.md
+# SHEETS_API_URL=https://script.google.com/macros/s/.../exec
+# optional: SHEETS_API_TOKEN if set in Apps Script properties
 ```
+
+See [SHEETS_SETUP.md](./SHEETS_SETUP.md). Paste-ready Apps Script: [`docs/apps-script-paste.gs`](./docs/apps-script-paste.gs).
 
 ## Key paths
 
 | Path | Role |
 |------|------|
-| `src/lib/edplan/` | PDF MIME + `%PDF` validation; AcroForm parse (`Class Title ie ENGL 101Row{row}_{col}`); course normalize |
+| `src/lib/edplan/` | PDF MIME + `%PDF` validation; AcroForm parse; course normalize |
 | `src/lib/ranking/` | Preference re-rank, conflicts, schedule fallback |
 | `src/lib/sheets/` | Typed Apps Script client + fixture fallback |
 | `src/components/PlannerApp.tsx` | Upload → editable plan → prefs → results UI |
-| `apps-script/` | clasp-ready SyncSections / SyncRmp / RecomputeRankings / doGet |
-| `fixtures/synthetic-edplan.pdf` | Synthetic AcroForm Edplan (no PII) |
+| `apps-script/` | clasp-ready `doGet` bridge (sync/rank stubs) |
+| `docs/apps-script-paste.gs` | Single file to paste into the bound script |
 | `fixtures/sheets-api-2271.json` | Demo Winter 2027 API payload |
-| `SHEETS_SETUP.md` | Bind sheet, deploy web app, triggers |
+| `SHEETS_SETUP.md` | New sheet headers, deploy, API contract |
 | `DEPLOY.md` | Docker + Caddy / VPS |
 
 ## Parser acceptance (Publisher Edplan)
-
-Verified column mapping:
 
 | Column | Term | Expected courses |
 |--------|------|------------------|
@@ -75,7 +70,7 @@ npm test
 npm run build
 ```
 
-Coverage includes: image rejection, synthetic PDF parse, `instructor_override` precedence, conflicts, schedule fallback, preference scoring.
+Coverage includes: image rejection, synthetic PDF parse, confirmed vs inferred RMP, day codes (`MoWe`), conflicts, schedule fallback, preference scoring.
 
 ## Docker
 
@@ -89,15 +84,13 @@ See [DEPLOY.md](./DEPLOY.md). Image uses Next `output: "standalone"`.
 
 | Piece | Status |
 |-------|--------|
-| Edplan PDF validate + AcroForm parse | Works (synthetic fixture in CI; real sample verified locally, never committed) |
+| Edplan PDF validate + AcroForm parse | Works (synthetic fixture in CI) |
 | Preference re-rank + conflict schedule | Works against sheet JSON or fixtures |
-| UI (upload → edit → results + links) | Works |
+| UI (upload → edit → results + details links) | Works |
 | Apps Script source in repo | Complete; **deploy is manual** by sheet owner |
-| Live ctcLink sync | Implemented best-effort (cookie + JSON shape may need tweaks per term) |
-| Live RMP GraphQL | Best-effort; Aliases + manual `instructor_override` are the reliable path |
-| Enroll deep links | Stored URL + `class_nbr`; ctcLink often still requires login |
-| Positional pdfjs fallback | Stubbed warning only when AcroForm missing — Publisher forms are the supported path |
-| Docker build on this authoring machine | Docker CLI may be unavailable; Dockerfile is provided for CI/VPS |
+| Sheet sync / RMP scrape | Out of scope — sheet is already populated |
+| Enroll deep links | Prefer `ctcLink class details link` (`class_nbr`); login often still required |
+| Docker build on this authoring machine | Docker CLI may be unavailable; Dockerfile is for CI/VPS |
 
 ## Privacy
 

@@ -451,7 +451,12 @@ export function PlannerApp() {
                     <dl className="grid gap-1 text-sm sm:grid-cols-2">
                       <div>
                         <dt className="inline text-[var(--muted)]">Professor: </dt>
-                        <dd className="inline">{opt.professorName}</dd>
+                        <dd className="inline">
+                          {opt.professorName}
+                          {opt.flags.inferred && opt.inferredInstructor
+                            ? ` (likely: ${opt.inferredInstructor})`
+                            : ""}
+                        </dd>
                       </div>
                       <div>
                         <dt className="inline text-[var(--muted)]">Mode: </dt>
@@ -487,7 +492,11 @@ export function PlannerApp() {
                     </dl>
                     <p className="mt-2 text-sm text-[var(--muted)]">{opt.reason}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      {opt.flags.tba && <Flag>TBA</Flag>}
+                      {opt.flags.tba && <Flag>TBA / ARR</Flag>}
+                      {opt.flags.staff && <Flag>Staff/TBA</Flag>}
+                      {opt.flags.inferred && (
+                        <Flag>Inferred instructor (unconfirmed)</Flag>
+                      )}
                       {opt.flags.full && <Flag>Full</Flag>}
                       {opt.flags.conflict && <Flag>Conflicts w/ 1st</Flag>}
                       {opt.flags.waitlist && <Flag>Waitlist</Flag>}

@@ -1,78 +1,99 @@
 # Google Sheet + Apps Script setup
 
-Spreadsheet SoT: [GRC Class Planner Data](https://docs.google.com/spreadsheets/d/1bvZht035ZNWhicZw5ozdQ9LzbCvJ95H0ynaGMxQqf1g/edit)
+Spreadsheet SoT: [GRC Winter + Spring 2027 classes + RMP](https://docs.google.com/spreadsheets/d/13iJQzRF4nPt-ri33CZkkJs57YtpEzpR3nh8CMverTjw/edit)
 
-**Do not rename or drop existing columns.** You may **add** columns (this project adds `removed` on `Sections` if missing).
+ID: `13iJQzRF4nPt-ri33CZkkJs57YtpEzpR3nh8CMverTjw`
 
-## Tabs (expected headers)
+Term tabs are **denormalized** (ctcLink + RMP on each row). Apps Script is a **read-only JSON bridge** — no SyncSections / SyncRmp / Rankings rebuild.
 
-### Sections
-`term_code,term,subject,catalog_nbr,course_code,title,section,class_nbr,component,instruction_mode,credits,days,start_time,end_time,location,status,seats_open,capacity,waitlist,instructor_ctclink,instructor_override,effective_instructor,enroll_url,last_synced` (+ optional `removed`)
+## Tabs
 
-Rules:
-- Never overwrite `instructor_override`
-- `effective_instructor = instructor_override || instructor_ctclink`
+| Term code | Tab name |
+|-----------|----------|
+| `2271` | Winter 2027 |
+| `2273` | Spring 2027 |
 
-### Professors
-`name,rmp_id,rmp_url,rating,difficulty,would_take_again,num_ratings,department,last_synced`
+### Expected headers (Winter / Spring)
 
-### CourseStats
-`course_code,professor,rmp_id,rmp_url,course_quality,course_difficulty,course_would_take_again_pct,course_num_ratings,overall_rating,overall_difficulty,overall_would_take_again_pct,overall_num_ratings,last_review_date`
+`Term, Term code, Subject, Course, Title, Section, Class #, Component, Instruction mode, Credits, Session, Start, End, Days, Times, Location / room, Campus, Status, Seats open, Capacity, Enrolled, Waitlist, Waitlist cap, Course attributes…, Instructor(s) (ctcLink), Staff/TBA?, RMP match, Match confidence, Match note, RMP overall, RMP difficulty, RMP would take again %, RMP # ratings, RMP this-course quality/difficulty/WTA/#, RMP URL, Likely instructor (inferred, NOT confirmed), Inference basis, Inferred #1 RMP…, ctcLink class details link, Details link check`
 
-### Aliases
-`ctclink_name,rmp_name,rmp_id,note` — use for Last,First ↔ First Last. **No private FRIEND dictionary.**
+### Column → API field (highlights)
 
-### Rankings
-`term_code,course_code,rank,rank_label,class_nbr,section,professor,score,reason,enroll_url,rmp_url,computed_at`
+| Sheet column | JSON field |
+|--------------|------------|
+| Term code | `term_code` |
+| Course | `course_code` |
+| Class # | `class_nbr` |
+| Days / Times | `days`, `start_time`, `end_time`, `times_raw` |
+| Instructor(s) (ctcLink) | `instructor` |
+| Staff/TBA? | `staff_tba` |
+| RMP * | `rmp_*` / `rmp_course_*` |
+| Likely instructor… | `inferred_instructor` (never confirmed) |
+| ctcLink class details link | `enroll_url` |
 
-## clasp deploy
+**Caveats:** `Times` may be multi-meeting (`8:00 AM-9:25 AM; 8:00 AM-9:50 AM`) — API exposes the first range as `start_time`/`end_time` plus `times_raw`. Days use `MoWe` / `TuTh` (and `;`-separated meeting patterns). `ARR` is treated like TBA for scheduling.
+
+## Deploy Apps Script
+
+Paste-ready single file: [`docs/apps-script-paste.gs`](./docs/apps-script-paste.gs) (also under the Project store `docs/`).
+
+Or clasp:
 
 ```bash
 cd apps-script
 npm i -g @google/clasp
 clasp login
 cp .clasp.json.example .clasp.json
-# set scriptId after creating a bound Apps Script project on the spreadsheet
+# set scriptId after creating a bound Apps Script project on the NEW spreadsheet
 clasp push
 clasp deploy --description "Find My Class API"
 ```
 
-Or: Extensions → Apps Script in the sheet, paste the `.gs` files, then **Deploy → New deployment → Web app**.
-
 ### Web app settings
 - Execute as: Me
-- Who has access: Anyone (or Anyone with Google account) — your choice
+- Who has access: Anyone (or Anyone with Google account)
 - Optional: Project Settings → Script properties → `SHEETS_API_TOKEN`
 
-### Planner menu + triggers
-1. Reload the spreadsheet → **Planner** menu appears (`onOpen`).
-2. Run **Sync sections**, **Sync RateMyProfessors**, **Recompute rankings**.
-3. Triggers (clock): daily/hourly `SyncSections`, less frequent `SyncRmp`, then `RecomputeRankings`.
+### Planner menu
+Reload the sheet → **Planner** → **Clear API cache** (entries also expire ~10 minutes). Sync/Rankings menu items are harmless stubs.
 
 ## API contract
 
 `GET {WEB_APP_URL}?term=2271&courses=ENGL%20128,CHEM%26%20161&token=...`
 
-Returns JSON:
+Env for Next.js: **`SHEETS_API_URL` only** (optional `SHEETS_API_TOKEN` if you set the script property).
 
 ```json
 {
   "term": "2271",
-  "sections": [],
-  "professors": [],
-  "courseStats": [],
-  "rankings": [],
+  "courses": ["ENGL 128"],
+  "tab": "Winter 2027",
+  "sections": [
+    {
+      "term_code": "2271",
+      "course_code": "ENGL 128",
+      "class_nbr": "10010",
+      "instructor": "Patrick Milian",
+      "staff_tba": false,
+      "rmp_confirmed": true,
+      "rmp_overall": 4.8,
+      "rmp_difficulty": 2.2,
+      "rmp_would_take_again": 90,
+      "rmp_course_quality": 4.89,
+      "enroll_url": "https://csprd.ctclink.us/psc/csprd/EMPLOYEE/SA/s/WEBLIB_HCX_CM.H_CLASS_DETAILS.FieldFormula.IScript_Main?institution=WA100&x_term=2271&class_nbr=10010",
+      "inferred_instructor": ""
+    }
+  ],
   "cachedAt": "...",
   "source": "live"
 }
 ```
 
-`CacheService` caches responses ~10 minutes.
+Staff/TBA rows may include `inferred_instructor` + `inferred_rmp_*` for display only. Ranking prefers confirmed RMP matches; inferred never counts as confirmed.
 
-## ctcLink + RMP notes
+`CacheService` caches responses ~10 minutes (`fmc2:` keys).
 
-- ClassSearch: `IScript_ClassSearch?institution=WA100&term=&subject=&page=`
+## ctcLink notes
+
+- Details / enroll pattern: `…H_CLASS_DETAILS…?institution=WA100&x_term={term}&class_nbr={class_nbr}`
 - Terms: `2271` Winter 2027, `2273` Spring 2027
-- First request may need a session cookie (handled best-effort in `SyncSections`)
-- RMP school id: `U2Nob29sLTIxMjM=` / legacy `2123`
-- GraphQL/HTML shapes change; treat SyncRmp as best-effort and keep manual overrides via Aliases + `instructor_override`

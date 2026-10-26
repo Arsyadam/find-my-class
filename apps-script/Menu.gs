@@ -1,19 +1,23 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Planner')
-    .addItem('Sync sections (ctcLink)', 'SyncSections')
-    .addItem('Sync RateMyProfessors', 'SyncRmp')
-    .addItem('Recompute rankings', 'RecomputeRankings')
-    .addSeparator()
     .addItem('Clear API cache', 'ClearFmcCache')
+    .addSeparator()
+    .addItem('Sync sections (stub)', 'SyncSections')
+    .addItem('Sync RateMyProfessors (stub)', 'SyncRmp')
+    .addItem('Recompute rankings (stub)', 'RecomputeRankings')
     .addToUi();
 }
 
 function ClearFmcCache() {
-  CacheService.getScriptCache().removeAll([
-    // CacheService has no list; document that keys expire naturally.
-  ]);
+  // CacheService has no enumerate API; entries expire via TTL (FMC.CACHE_SECONDS).
+  // Touch a sentinel key so operators know clear was invoked.
+  var cache = CacheService.getScriptCache();
+  cache.remove('fmc2:__clear__');
+  cache.put('fmc2:__clear__', String(Date.now()), 60);
   SpreadsheetApp.getUi().alert(
-    'Script cache entries expire automatically (~10 minutes). Redeploy or wait for TTL.'
+    'API cache entries expire automatically (~' +
+      Math.round(FMC.CACHE_SECONDS / 60) +
+      ' minutes). Redeploy or wait for TTL after sheet edits.'
   );
 }

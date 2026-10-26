@@ -26,26 +26,58 @@ export function timeToMinutes(raw: string | null | undefined): number | null {
   return null;
 }
 
+/**
+ * Expand day codes from new sheet (MoWe, TuTh, MoTuWeThFr, "TuFr; Mo")
+ * and legacy compact forms (MW, TTh, MTWThF).
+ */
 export function expandDays(days: string | null | undefined): string[] {
   if (!days) return [];
-  const s = days.trim().toUpperCase().replace(/\s+/g, "");
-  if (!s || s === "TBA" || s === "ARR") return [];
+  const raw = days.trim();
+  if (!raw || /^tba$/i.test(raw) || /^arr$/i.test(raw)) return [];
 
-  // MTWThF / MW / TTh etc.
+  // Multi-meeting: "TuFr; Mo" → join tokens
+  const chunks = raw.split(/[;/]+/).map((c) => c.trim()).filter(Boolean);
+  const out: string[] = [];
+  for (const chunk of chunks) {
+    for (const d of expandDayChunk(chunk)) {
+      if (!out.includes(d)) out.push(d);
+    }
+  }
+  return out;
+}
+
+function expandDayChunk(chunk: string): string[] {
+  const s = chunk.replace(/\s+/g, "");
+  if (!s) return [];
+
+  // Prefer two-letter tokens used by the new sheet
+  const twoLetter = s.match(/^(Mo|Tu|We|Th|Fr|Sa|Su)+$/i);
+  if (twoLetter) {
+    const out: string[] = [];
+    const re = /Mo|Tu|We|Th|Fr|Sa|Su/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(s))) {
+      out.push(normalizeDayToken(m[0]));
+    }
+    return out;
+  }
+
+  // Legacy MTWThF / MW / TTh
+  const upper = s.toUpperCase();
   const out: string[] = [];
   let i = 0;
-  while (i < s.length) {
-    if (s.startsWith("TH", i)) {
+  while (i < upper.length) {
+    if (upper.startsWith("TH", i)) {
       out.push("Th");
       i += 2;
-    } else if (s.startsWith("SU", i)) {
+    } else if (upper.startsWith("SU", i)) {
       out.push("Su");
       i += 2;
-    } else if (s.startsWith("SA", i)) {
+    } else if (upper.startsWith("SA", i)) {
       out.push("Sa");
       i += 2;
     } else {
-      const ch = s[i];
+      const ch = upper[i];
       if (ch === "M") out.push("M");
       else if (ch === "T") out.push("T");
       else if (ch === "W") out.push("W");
@@ -55,6 +87,27 @@ export function expandDays(days: string | null | undefined): string[] {
     }
   }
   return out;
+}
+
+function normalizeDayToken(tok: string): string {
+  switch (tok.toLowerCase()) {
+    case "mo":
+      return "M";
+    case "tu":
+      return "T";
+    case "we":
+      return "W";
+    case "th":
+      return "Th";
+    case "fr":
+      return "F";
+    case "sa":
+      return "Sa";
+    case "su":
+      return "Su";
+    default:
+      return tok;
+  }
 }
 
 export function intervalsOverlap(

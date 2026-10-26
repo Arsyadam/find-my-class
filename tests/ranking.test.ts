@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { effectiveInstructor } from "@/lib/sheets/types";
+import {
+  effectiveInstructor,
+  hasConfirmedRmp,
+  inferredInstructorName,
+} from "@/lib/sheets/types";
 import {
   buildSchedule,
+  expandDays,
   recommendCourses,
   sectionsConflict,
 } from "@/lib/ranking";
@@ -30,24 +35,47 @@ const basePrefs: UserPreferences = {
   weightWouldTakeAgain: 25,
 };
 
-describe("effectiveInstructor override precedence", () => {
-  it("uses override over ctclink", () => {
+describe("effectiveInstructor + inferred", () => {
+  it("uses ctcLink instructor and never invents overrides", () => {
     expect(
       effectiveInstructor({
-        instructor_ctclink: "Staff",
-        instructor_override: "Chen, Li",
-        effective_instructor: "Staff",
-      }),
-    ).toBe("Chen, Li");
-  });
-
-  it("falls back to ctclink when override empty", () => {
-    expect(
-      effectiveInstructor({
-        instructor_ctclink: "Nguyen, Mai",
+        instructor: "Nguyen, Mai",
         instructor_override: "",
       }),
     ).toBe("Nguyen, Mai");
+  });
+
+  it("keeps Staff when only inferred is present", () => {
+    const staff = fixture.sections.find(
+      (s) => s.course_code === "ENGL 128" && s.staff_tba,
+    );
+    expect(staff).toBeTruthy();
+    expect(effectiveInstructor(staff!)).toBe("Staff");
+    expect(inferredInstructorName(staff!).length).toBeGreaterThan(0);
+    expect(hasConfirmedRmp(staff!)).toBe(false);
+  });
+
+  it("marks confirmed RMP on named instructors", () => {
+    const named = fixture.sections.find(
+      (s) => s.course_code === "ENGL 128" && !s.staff_tba,
+    );
+    expect(named).toBeTruthy();
+    expect(hasConfirmedRmp(named!)).toBe(true);
+  });
+});
+
+describe("expandDays new sheet codes", () => {
+  it("parses MoWe / TuTh / multi-meeting", () => {
+    expect(expandDays("MoWe")).toEqual(["M", "W"]);
+    expect(expandDays("TuTh")).toEqual(["T", "Th"]);
+    expect(expandDays("MoWeFr")).toEqual(["M", "W", "F"]);
+    expect(expandDays("TuFr; Mo")).toEqual(["T", "F", "M"]);
+    expect(expandDays("ARR")).toEqual([]);
+  });
+
+  it("still parses legacy MW / TTh", () => {
+    expect(expandDays("MW")).toEqual(["M", "W"]);
+    expect(expandDays("TTh")).toEqual(["T", "Th"]);
   });
 });
 
@@ -56,12 +84,12 @@ describe("conflicts", () => {
     expect(
       sectionsConflict(
         {
-          days: "MW",
+          days: "MoWe",
           start_time: "10:00 AM",
           end_time: "12:00 PM",
         },
         {
-          days: "MWF",
+          days: "MoWeFr",
           start_time: "11:00 AM",
           end_time: "12:00 PM",
         },
@@ -72,8 +100,8 @@ describe("conflicts", () => {
   it("allows different days", () => {
     expect(
       sectionsConflict(
-        { days: "MW", start_time: "10:00 AM", end_time: "12:00 PM" },
-        { days: "TTh", start_time: "10:00 AM", end_time: "12:00 PM" },
+        { days: "MoWe", start_time: "10:00 AM", end_time: "12:00 PM" },
+        { days: "TuTh", start_time: "10:00 AM", end_time: "12:00 PM" },
       ),
     ).toBe(false);
   });
@@ -91,19 +119,38 @@ describe("recommendCourses + schedule fallback", () => {
     expect(engl?.options.length).toBeGreaterThanOrEqual(2);
     expect(engl?.options[0].rankLabel).toBe("1st option");
     expect(engl?.options[0].reason.length).toBeGreaterThan(0);
-    // Override section should surface Chen, Li not Staff
-    const chen = engl?.options.find((o) => o.professorName === "Chen, Li");
-    expect(chen).toBeTruthy();
+    // Confirmed named instructors should appear; Staff stays Staff
+    const named = engl?.options.find((o) => o.professorName !== "Staff");
+    expect(named).toBeTruthy();
+    const staffOpt = engl?.options.find((o) => o.flags.staff);
+    if (staffOpt) {
+      expect(staffOpt.professorName).toBe("Staff");
+      expect(staffOpt.flags.inferred).toBe(true);
+    }
   });
 
-  it("prefers named instructor over Staff when quality weights equal", () => {
+  it("prefers confirmed RMP instructor over Staff", () => {
     const recs = recommendCourses(["ENGR 100"], fixture, {
       ...basePrefs,
       weightQuality: 80,
       weightEasiness: 10,
       weightWouldTakeAgain: 10,
     });
-    expect(recs[0].options[0].professorName).toBe("Hassan, Amira");
+    expect(recs[0].options[0].flags.staff).toBe(false);
+    expect(recs[0].options[0].professorName).not.toBe("Staff");
+    expect(hasConfirmedRmp(recs[0].options[0].section)).toBe(true);
+  });
+
+  it("ranks Staff/inferred below confirmed even with strong inferred RMP", () => {
+    const recs = recommendCourses(["ENGL 128"], fixture, {
+      ...basePrefs,
+      weightQuality: 90,
+      weightEasiness: 5,
+      weightWouldTakeAgain: 5,
+    });
+    const top = recs[0].options[0];
+    expect(top.flags.staff).toBe(false);
+    expect(top.flags.inferred).toBe(false);
   });
 
   it("falls back to 2nd/3rd when 1st conflicts in schedule builder", () => {
@@ -116,23 +163,22 @@ describe("recommendCourses + schedule fallback", () => {
     const engr = recs.find((r) => r.courseCode === "ENGR 100");
     expect(engl?.options[0]).toBeTruthy();
     expect(engr?.options[0]).toBeTruthy();
-    // Pin ENGL 1st to a timed MW block, then make ENGR 1st collide with it.
+    expect(engr!.options.length).toBeGreaterThanOrEqual(2);
     engl!.options[0].section = {
       ...engl!.options[0].section,
-      days: "MW",
+      days: "MoWe",
       start_time: "10:00 AM",
       end_time: "12:00 PM",
     };
     engr!.options[0].section = {
       ...engr!.options[0].section,
-      days: "MW",
+      days: "MoWe",
       start_time: "10:00 AM",
       end_time: "12:00 PM",
     };
-    // Ensure a non-conflicting 2nd option remains for ENGR
     engr!.options[1].section = {
       ...engr!.options[1].section,
-      days: "F",
+      days: "Fr",
       start_time: "1:00 PM",
       end_time: "3:00 PM",
     };
