@@ -28,9 +28,9 @@ export async function loadFixtureApi(
         )
       : data.sections,
     rankings: filter
-      ? data.rankings.filter((r) =>
+      ? (data.rankings ?? []).filter((r) =>
           wanted.has(r.course_code.toUpperCase().replace(/\s+/g, " ")),
         )
-      : data.rankings,
+      : (data.rankings ?? []),
   };
 }

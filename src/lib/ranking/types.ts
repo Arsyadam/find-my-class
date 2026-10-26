@@ -33,10 +33,15 @@ export interface RankedOption {
     full: boolean;
     notOffered: boolean;
     waitlist: boolean;
+    /** Staff/TBA with only an inferred likely instructor */
+    inferred: boolean;
+    staff: boolean;
   };
   enrollUrl: string;
   rmpUrl: string;
   baseRanking?: SheetRanking;
+  /** Shown when inferred — never presented as confirmed */
+  inferredInstructor?: string;
 }
 
 export interface CourseRecommendation {
