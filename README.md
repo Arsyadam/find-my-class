@@ -31,11 +31,12 @@ npm test
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Without `SHEETS_API_URL`, recommendations use `fixtures/sheets-api-*.json`.
+Open [http://localhost:3000](http://localhost:3000). Live data comes from the public Winter/Spring sheet CSV by default. Optional `SHEETS_API_URL` (Apps Script) overrides when healthy; on failure the app falls back to CSV, then fixtures.
 
 ```bash
+# optional Apps Script bridge:
 # SHEETS_API_URL=https://script.google.com/macros/s/.../exec
-# optional: SHEETS_API_TOKEN if set in Apps Script properties
+# SHEETS_API_TOKEN=...
 ```
 
 See [SHEETS_SETUP.md](./SHEETS_SETUP.md). Paste-ready Apps Script: [`docs/apps-script-paste.gs`](./docs/apps-script-paste.gs).

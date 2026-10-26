@@ -63,6 +63,8 @@ Reload the sheet → **Planner** → **Clear API cache** (entries also expire ~1
 
 Env for Next.js: **`SHEETS_API_URL` only** (optional `SHEETS_API_TOKEN` if you set the script property).
 
+If `SHEETS_API_URL` is unset **or** Apps Script fails (HTML login page / token / timeout), Next.js automatically reads the public sheet CSV export for Winter/Spring tabs — so recommendations still work without a working web-app deploy.
+
 ```json
 {
   "term": "2271",

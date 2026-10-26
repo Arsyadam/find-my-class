@@ -14,6 +14,7 @@
  *
  * Bound spreadsheet ID is FMC.SHEET_ID below.
  * SyncSections / SyncRmp / RecomputeRankings are stubs — sheet is already populated.
+ * Next.js also falls back to public sheet CSV if Apps Script fails.
  */
 
 
@@ -269,11 +270,7 @@ function buildApiPayload_(term, courses) {
   });
   var filterCourses = courses.length > 0;
 
-  var sections = loadMappedSections_(sheet).filter(function (s) {
-    if (String(s.term_code) !== String(term)) return false;
-    if (!filterCourses) return true;
-    return wanted[String(s.course_code).toUpperCase().replace(/\s+/g, ' ')];
-  });
+  var sections = loadMappedSections_(sheet, term, filterCourses ? wanted : null);
 
   return {
     term: term,
@@ -283,7 +280,7 @@ function buildApiPayload_(term, courses) {
   };
 }
 
-function loadMappedSections_(sheet) {
+function loadMappedSections_(sheet, term, wantedCourses) {
   var headers = fmcHeaders_(sheet);
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
@@ -291,10 +288,21 @@ function loadMappedSections_(sheet) {
 
   var values = sheet.getRange(2, 1, lastRow, lastCol).getValues();
   var headerKeys = Object.keys(FMC.COLUMN_MAP);
+  var courseCol = headers['Course'];
   var out = [];
 
   for (var r = 0; r < values.length; r++) {
     var row = values[r];
+    // Fast path: skip empty / other courses before full column map
+    if (courseCol != null) {
+      var quickCourse = String(row[courseCol] || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, ' ');
+      if (!quickCourse) continue;
+      if (wantedCourses && !wantedCourses[quickCourse]) continue;
+    }
+
     var raw = {};
     for (var h = 0; h < headerKeys.length; h++) {
       var human = headerKeys[h];
@@ -375,6 +383,7 @@ function loadMappedSections_(sheet) {
       removed: false
     };
 
+    if (term && String(section.term_code) !== String(term)) continue;
     section.rmp_confirmed = fmcConfirmedRmp_(section);
     out.push(section);
   }
