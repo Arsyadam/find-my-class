@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+*.md
+!README.md
+coverage
+npm-debug.log*
+.env*
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+apps-script/.clasp.json
+.clasp.json
