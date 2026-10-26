@@ -1,0 +1,11 @@
+services:
+  find-my-class:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      SHEETS_API_URL: ${SHEETS_API_URL:-}
+      SHEETS_API_TOKEN: ${SHEETS_API_TOKEN:-}
+      REVALIDATE_SECONDS: ${REVALIDATE_SECONDS:-600}
+      DEFAULT_TERM_CODE: ${DEFAULT_TERM_CODE:-2271}
+    restart: unless-stopped

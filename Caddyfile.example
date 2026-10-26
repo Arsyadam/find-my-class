@@ -1,0 +1,11 @@
+# Example reverse proxy for a VPS (replace domain)
+findmyclass.example.com {
+	encode gzip
+	reverse_proxy find-my-class:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
