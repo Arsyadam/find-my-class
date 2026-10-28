@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { DM_Sans, Fraunces, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
 const display = Fraunces({
@@ -8,16 +8,22 @@ const display = Fraunces({
   weight: ["500", "600", "700"],
 });
 
-const body = Source_Sans_3({
-  variable: "--font-body",
+const sans = DM_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
+const mono = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
 export const metadata: Metadata = {
-  title: "Find My Class — GRC section recommender",
+  title: "Plan Your Best Quarter in GRC",
   description:
-    "Unofficial Green River College tool: upload your Educational Plan and get ranked section/professor options for the target quarter.",
+    "Unofficial Green River College tool: plan your quarter from an Educational Plan or typed courses, then get ranked section options.",
 };
 
 export default function RootLayout({
@@ -27,7 +33,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable} antialiased`}>
+      <body
+        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased`}
+      >
         {children}
       </body>
     </html>
