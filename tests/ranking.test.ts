@@ -9,6 +9,7 @@ import {
 import {
   buildSchedule,
   expandDays,
+  inferredStaffNote,
   recommendCourses,
   sectionsConflict,
 } from "@/lib/ranking";
@@ -151,6 +152,25 @@ describe("recommendCourses + schedule fallback", () => {
     const top = recs[0].options[0];
     expect(top.flags.staff).toBe(false);
     expect(top.flags.inferred).toBe(false);
+  });
+
+  it("keeps Staff sections with inferred instructors in ranked options", () => {
+    const staffOnly: SheetsApiResponse = {
+      ...fixture,
+      sections: fixture.sections.filter(
+        (s) => s.course_code === "ENGL 128" && s.staff_tba,
+      ),
+    };
+    const recs = recommendCourses(["ENGL 128"], staffOnly, basePrefs);
+    expect(recs[0].options.length).toBeGreaterThan(0);
+    expect(
+      recs[0].options.every(
+        (o) => o.flags.staff && o.flags.inferred && o.inferredInstructor,
+      ),
+    ).toBe(true);
+    expect(inferredStaffNote(recs[0].options[0].inferredInstructor!)).toBe(
+      `Listed as Staff. Likely: ${recs[0].options[0].inferredInstructor} (unconfirmed).`,
+    );
   });
 
   it("falls back to 2nd/3rd when 1st conflicts in schedule builder", () => {

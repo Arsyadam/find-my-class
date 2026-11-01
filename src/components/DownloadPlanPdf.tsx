@@ -35,9 +35,9 @@ export function DownloadPlanPdf({
       let page = doc.addPage([612, 792]);
       let y = 750;
       const margin = 48;
-      const ink = rgb(0.08, 0.13, 0.1);
-      const mute = rgb(0.3, 0.36, 0.32);
-      const green = rgb(0.12, 0.42, 0.29);
+      const ink = rgb(0.16, 0.12, 0.18);
+      const mute = rgb(0.36, 0.3, 0.37);
+      const accent = rgb(0.91, 0.36, 0.3);
 
       const write = (
         text: string,
@@ -84,9 +84,9 @@ export function DownloadPlanPdf({
         }
       };
 
-      write("Plan Your Best Quarter in GRC", { size: 18, bold: true, color: green });
+      write("Plan Your Best Quarter in GRC", { size: 18, bold: true, color: accent });
       write(termLabel, { size: 12, color: mute });
-      write(`Courses: ${courseCodes.join(", ") || "—"}`, { size: 11 });
+      write(`Courses: ${courseCodes.join(", ") || "n/a"}`, { size: 11 });
       y -= 8;
 
       for (const rec of recommendations) {
@@ -97,13 +97,19 @@ export function DownloadPlanPdf({
         }
         for (const opt of rec.options) {
           write(
-            `${opt.rankLabel} — Sec ${opt.section.section} (#${opt.section.class_nbr}) · ${opt.professorName}`,
+            `${opt.rankLabel}: Sec ${opt.section.section} (#${opt.section.class_nbr}) · ${opt.professorName}`,
             { size: 11, bold: true },
           );
           write(
-            `${opt.section.days} ${opt.section.start_time}–${opt.section.end_time} · ${opt.section.instruction_mode} · ${opt.section.location || "—"}`,
+            `${opt.section.days} ${opt.section.start_time} to ${opt.section.end_time} · ${opt.section.instruction_mode} · ${opt.section.location || "n/a"}`,
             { size: 10, color: mute },
           );
+          if (opt.flags.inferred && opt.inferredInstructor) {
+            write(
+              `Listed as Staff. Likely: ${opt.inferredInstructor} (unconfirmed).`,
+              { size: 9, color: mute },
+            );
+          }
           if (opt.rmpUrl) write(`RMP: ${opt.rmpUrl}`, { size: 9, color: mute });
           if (opt.enrollUrl) write(`Enroll: ${opt.enrollUrl}`, { size: 9, color: mute });
           y -= 4;
@@ -116,7 +122,7 @@ export function DownloadPlanPdf({
         write(`Total credits: ${schedule.totalCredits}`, { size: 10, color: mute });
         for (const b of schedule.blocks) {
           write(
-            `${b.courseCode} sec ${b.section} — ${b.professor}: ${b.days} ${b.startTime}–${b.endTime} @ ${b.location}`,
+            `${b.courseCode} sec ${b.section}, ${b.professor}: ${b.days} ${b.startTime} to ${b.endTime} @ ${b.location}`,
             { size: 10 },
           );
         }
@@ -129,7 +135,7 @@ export function DownloadPlanPdf({
       }
 
       write(
-        "Unofficial student tool — verify all sections in ctcLink before enrolling.",
+        "Unofficial student tool. Verify all sections in ctcLink before enrolling.",
         { size: 9, color: mute },
       );
 

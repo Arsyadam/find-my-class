@@ -2,21 +2,29 @@
 @import "tw-animate-css";
 
 :root {
-  --background: #f3f6f2;
-  --foreground: #14201a;
+  /* Colorful clipboard field: orange → peach → pink → lavender → sky */
+  --background: #fff5f0;
+  --foreground: #2a1f2d;
   --card: #ffffff;
-  --card-foreground: #14201a;
-  --primary: #1f6b4a;
-  --primary-foreground: #f5fbf7;
-  --accent: #e4f0e8;
-  --accent-foreground: #14201a;
-  --muted: #e7eee8;
-  --muted-foreground: #4a5c52;
-  --border: #c9d6ce;
-  --ring: #2f8f62;
+  --card-foreground: #2a1f2d;
+  --primary: #e85d4c;
+  --primary-foreground: #fffaf8;
+  --accent: #ffe4d6;
+  --accent-foreground: #2a1f2d;
+  --muted: #f3e8f4;
+  --muted-foreground: #5c4d5e;
+  --border: #f0cfc4;
+  --ring: #7eb8e8;
   --destructive: #b42318;
   --destructive-foreground: #fef2f2;
   --radius: 0.875rem;
+
+  --hue-orange: #ff9a5c;
+  --hue-peach: #ffc4a8;
+  --hue-pink: #ff9ec7;
+  --hue-lavender: #c4b0e8;
+  --hue-sky: #87ceeb;
+  --glass: rgba(255, 255, 255, 0.82);
 }
 
 @theme inline {
@@ -46,10 +54,12 @@ body {
   font-family: var(--font-sans), "DM Sans", sans-serif;
   background-color: var(--background);
   background-image:
-    radial-gradient(900px 520px at 12% -8%, #d5e8da 0%, transparent 58%),
-    radial-gradient(780px 480px at 92% 8%, #e8f1ea 0%, transparent 55%),
-    radial-gradient(700px 420px at 50% 110%, #ebe6d8 0%, transparent 50%),
-    linear-gradient(168deg, #f3f6f2 0%, #eef3ec 48%, #e6efe8 100%);
+    radial-gradient(1100px 680px at 8% -12%, var(--hue-orange) 0%, transparent 58%),
+    radial-gradient(920px 560px at 92% 0%, var(--hue-peach) 0%, transparent 55%),
+    radial-gradient(780px 520px at 48% 28%, var(--hue-pink) 0%, transparent 52%),
+    radial-gradient(980px 640px at 78% 92%, var(--hue-lavender) 0%, transparent 55%),
+    radial-gradient(860px 520px at 6% 88%, var(--hue-sky) 0%, transparent 50%),
+    linear-gradient(168deg, #fff5f0 0%, #ffe8f2 42%, #ebe8ff 72%, #e6f4fb 100%);
   background-attachment: fixed;
 }
 
@@ -59,6 +69,29 @@ body {
 
 .font-mono-course {
   font-family: var(--font-mono), "IBM Plex Mono", monospace;
+}
+
+.glass-shell {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.chip-hue-orange {
+  background: color-mix(in srgb, var(--hue-orange) 28%, white);
+  color: #7a3a12;
+}
+.chip-hue-pink {
+  background: color-mix(in srgb, var(--hue-pink) 32%, white);
+  color: #7a2450;
+}
+.chip-hue-lavender {
+  background: color-mix(in srgb, var(--hue-lavender) 36%, white);
+  color: #4a3870;
+}
+.chip-hue-sky {
+  background: color-mix(in srgb, var(--hue-sky) 34%, white);
+  color: #1f4f70;
 }
 
 @media (prefers-reduced-motion: reduce) {

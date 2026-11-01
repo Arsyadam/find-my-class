@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { FileUp, Keyboard } from "lucide-react";
 import {
   PromptInput,
@@ -20,25 +20,21 @@ type Props = {
   busy?: boolean;
 };
 
-function parseCourses(text: string): string[] {
-  return text
-    .split(/[\n,;]+/)
-    .map((s) => s.trim().replace(/\s+/g, " "))
-    .filter(Boolean)
-    .slice(0, 4);
-}
-
 export function ChooseStep({ onBack, onContinue, busy }: Props) {
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<"pdf" | "typed" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(message: string, meta: PromptSubmitMeta) {
+  function handleSubmit(_message: string, meta: PromptSubmitMeta) {
     setError(null);
     const effort = (meta.effort as EffortLevel) || "medium";
     const termCode = meta.model || "2271";
 
-    if (meta.attachments[0]) {
+    if (mode === "pdf") {
+      if (!meta.attachments[0]) {
+        setError("Attach a PDF Educational Plan to continue.");
+        return;
+      }
       onContinue({
         mode: "pdf",
         file: meta.attachments[0],
@@ -48,13 +44,9 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
       return;
     }
 
-    const courses = parseCourses(message);
+    const courses = (meta.courses.length ? meta.courses : []).slice(0, 4);
     if (!courses.length) {
-      setError("Attach a PDF or type up to 4 course codes.");
-      return;
-    }
-    if (courses.length > 4) {
-      setError("Enter at most 4 courses.");
+      setError("Add up to 4 course codes from the catalog.");
       return;
     }
     onContinue({ mode: "typed", courses, termCode, effort });
@@ -76,14 +68,14 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
           [
             {
               id: "pdf" as const,
-              title: "Upload Edplan PDF",
+              title: "Upload Edplan",
               body: "Parse Winter / Spring rows from your plan.",
               icon: FileUp,
             },
             {
               id: "typed" as const,
               title: "Type courses",
-              body: "Enter codes like ENGL 128 or POLS& 202.",
+              body: "Pick codes like ENGL 128 or POLS& 202.",
               icon: Keyboard,
             },
           ] as const
@@ -100,9 +92,12 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
                   ? { duration: 0 }
                   : { delay: i * 0.06, type: "spring", stiffness: 280, damping: 28 }
               }
-              onClick={() => setMode(opt.id)}
+              onClick={() => {
+                setMode(opt.id);
+                setError(null);
+              }}
               className={cn(
-                "rounded-2xl border border-border bg-card/80 px-4 py-4 text-left transition-colors hover:bg-accent/60",
+                "rounded-2xl border border-border glass-shell px-4 py-4 text-left transition-colors hover:bg-accent/60",
                 mode === opt.id && "border-primary ring-2 ring-ring/30",
               )}
             >
@@ -114,24 +109,41 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
         })}
       </div>
 
-      <PromptInput
-        disabled={busy}
-        error={error}
-        onError={setError}
-        models={[...TERM_OPTIONS]}
-        placeholder={
-          mode === "pdf"
-            ? "Attach your Educational Plan PDF, pick a term, then send…"
-            : "ENGL 128, POLS& 202…"
-        }
-        onSubmit={handleSubmit}
-      />
+      <AnimatePresence>
+        {mode && (
+          <motion.div
+            key={mode}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 280, damping: 28 }
+            }
+          >
+            <PromptInput
+              disabled={busy}
+              error={error}
+              onError={setError}
+              models={[...TERM_OPTIONS]}
+              courseNuggets={mode === "typed"}
+              placeholder={
+                mode === "pdf"
+                  ? "Attach or drop your Educational Plan PDF, pick a term, then send…"
+                  : "Start typing a course code…"
+              }
+              onSubmit={handleSubmit}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
+          className="rounded-full border border-border bg-card/70 px-4 py-2 text-sm font-medium hover:bg-accent"
         >
           Back
         </button>

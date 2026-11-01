@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowUp,
   ChevronDown,
   FileText,
-  Mic,
   Paperclip,
   X,
 } from "lucide-react";
@@ -19,6 +19,7 @@ export type PromptSubmitMeta = {
   model: string;
   effort: string;
   attachments: File[];
+  courses: string[];
 };
 
 export type PromptInputProps = {
@@ -29,11 +30,14 @@ export type PromptInputProps = {
   defaultModel?: string;
   defaultEffort?: string;
   className?: string;
-  /** PDF only — images rejected */
+  /** PDF only; images rejected */
   accept?: string;
   disabled?: boolean;
   error?: string | null;
   onError?: (message: string | null) => void;
+  /** When true, typing becomes course nugget chips (max 4) with catalog autocomplete. */
+  courseNuggets?: boolean;
+  maxCourses?: number;
 };
 
 const DEFAULT_MODELS: PromptModel[] = [
@@ -46,6 +50,13 @@ const DEFAULT_EFFORTS: PromptEffort[] = [
   { value: "medium", label: "Balanced" },
   { value: "max", label: "Quality" },
 ];
+
+const CHIP_HUES = [
+  "chip-hue-orange",
+  "chip-hue-pink",
+  "chip-hue-lavender",
+  "chip-hue-sky",
+] as const;
 
 function isPdfFile(file: File): boolean {
   const name = file.name.toLowerCase();
@@ -60,6 +71,10 @@ function isImageFile(file: File): boolean {
   return file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|heic)$/i.test(file.name);
 }
 
+function normalizeCourse(code: string): string {
+  return code.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 export function PromptInput({
   onSubmit,
   placeholder = "ENGL 128, POLS& 202…",
@@ -72,6 +87,8 @@ export function PromptInput({
   disabled = false,
   error = null,
   onError,
+  courseNuggets = false,
+  maxCourses = 4,
 }: PromptInputProps) {
   const reduce = useReducedMotion();
   const [value, setValue] = React.useState("");
@@ -79,12 +96,18 @@ export function PromptInput({
   const [model, setModel] = React.useState(defaultModel ?? models[0]?.value ?? "");
   const [effort, setEffort] = React.useState(defaultEffort);
   const [attachments, setAttachments] = React.useState<File[]>([]);
+  const [courses, setCourses] = React.useState<string[]>([]);
+  const [suggestions, setSuggestions] = React.useState<string[]>([]);
+  const [suggestOpen, setSuggestOpen] = React.useState(false);
   const [modelOpen, setModelOpen] = React.useState(false);
   const [effortOpen, setEffortOpen] = React.useState(false);
-  const [listening, setListening] = React.useState(false);
-  const [bars, setBars] = React.useState([0.3, 0.55, 0.4, 0.7, 0.45]);
+  const [dragging, setDragging] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const shellRef = React.useRef<HTMLDivElement>(null);
+  const modelBtnRef = React.useRef<HTMLButtonElement>(null);
+  const effortBtnRef = React.useRef<HTMLButtonElement>(null);
+  const dragDepth = React.useRef(0);
 
   React.useEffect(() => {
     if (defaultModel) setModel(defaultModel);
@@ -98,12 +121,39 @@ export function PromptInput({
   }, [value]);
 
   React.useEffect(() => {
-    if (!listening || reduce) return;
-    const id = window.setInterval(() => {
-      setBars((prev) => prev.map(() => 0.25 + Math.random() * 0.75));
-    }, 120);
-    return () => window.clearInterval(id);
-  }, [listening, reduce]);
+    if (!courseNuggets) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const q = value.trim();
+    if (q.length < 1 || courses.length >= maxCourses) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const ctrl = new AbortController();
+    const id = window.setTimeout(async () => {
+      try {
+        const url = new URL("/api/catalog", window.location.origin);
+        url.searchParams.set("term", model);
+        url.searchParams.set("q", q);
+        const res = await fetch(url.toString(), { signal: ctrl.signal });
+        const json = (await res.json()) as { courses?: string[] };
+        const next = (json.courses ?? []).filter(
+          (c) => !courses.includes(normalizeCourse(c)),
+        );
+        setSuggestions(next.slice(0, 8));
+        setSuggestOpen(next.length > 0);
+      } catch {
+        /* ignore abort / network */
+      }
+    }, 160);
+    return () => {
+      ctrl.abort();
+      window.clearTimeout(id);
+    };
+  }, [value, model, courseNuggets, courses, maxCourses]);
 
   function reject(msg: string) {
     onError?.(msg);
@@ -113,7 +163,7 @@ export function PromptInput({
     const next: File[] = [];
     for (const file of Array.from(list)) {
       if (isImageFile(file)) {
-        reject("Images are not accepted — upload a PDF Educational Plan only.");
+        reject("Images are not accepted. Upload a PDF Educational Plan only.");
         continue;
       }
       if (!isPdfFile(file)) {
@@ -128,43 +178,150 @@ export function PromptInput({
     }
   }
 
+  function addCourse(raw: string) {
+    const code = normalizeCourse(raw);
+    if (!code) return;
+    if (courses.includes(code)) {
+      setValue("");
+      setSuggestOpen(false);
+      return;
+    }
+    if (courses.length >= maxCourses) {
+      reject(`Enter at most ${maxCourses} courses.`);
+      return;
+    }
+    onError?.(null);
+    setCourses((prev) => [...prev, code]);
+    setValue("");
+    setSuggestOpen(false);
+  }
+
+  function removeCourse(code: string) {
+    setCourses((prev) => prev.filter((c) => c !== code));
+  }
+
   function submit() {
     if (disabled) return;
     const message = value.trim();
+    if (courseNuggets) {
+      const pending = message ? normalizeCourse(message) : "";
+      const finalCourses =
+        pending && !courses.includes(pending) && courses.length < maxCourses
+          ? [...courses, pending]
+          : courses;
+      if (!finalCourses.length && attachments.length === 0) return;
+      if (pending && courses.includes(pending) === false && courses.length >= maxCourses) {
+        reject(`Enter at most ${maxCourses} courses.`);
+        return;
+      }
+      onSubmit(finalCourses.join(", "), {
+        model,
+        effort,
+        attachments,
+        courses: finalCourses,
+      });
+      return;
+    }
     if (!message && attachments.length === 0) return;
-    onSubmit(message, { model, effort, attachments });
+    onSubmit(message, { model, effort, attachments, courses: [] });
   }
 
-  const expanded = focused || value.length > 0 || attachments.length > 0;
+  const expanded =
+    focused || value.length > 0 || attachments.length > 0 || courses.length > 0;
   const modelLabel = models.find((m) => m.value === model)?.label ?? model;
   const effortLabel = efforts.find((e) => e.value === effort)?.label ?? effort;
-  const canSend = !disabled && (value.trim().length > 0 || attachments.length > 0);
+  const canSend =
+    !disabled &&
+    (courseNuggets
+      ? courses.length > 0 || value.trim().length > 0 || attachments.length > 0
+      : value.trim().length > 0 || attachments.length > 0);
 
   const spring = reduce
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 320, damping: 28, mass: 0.85 };
 
+  function onDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current += 1;
+    setDragging(true);
+  }
+
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragging(false);
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = 0;
+    setDragging(false);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+  }
+
   return (
     <div className={cn("w-full", className)}>
       <motion.div
+        ref={shellRef}
         layout
         transition={spring}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
         className={cn(
-          "relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_10px_40px_-24px_rgba(20,32,26,0.35)]",
-          focused && "ring-2 ring-ring/40",
+          "relative rounded-2xl border border-border glass-shell shadow-[0_12px_40px_-22px_rgba(90,40,60,0.35)]",
+          focused && "ring-2 ring-ring/45",
+          dragging && "border-primary ring-2 ring-primary/35",
         )}
       >
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-primary/10 text-sm font-medium text-primary">
+            Drop PDF Educational Plan
+          </div>
+        )}
+
         <AnimatePresence initial={false}>
-          {attachments.length > 0 && (
+          {(attachments.length > 0 || courses.length > 0) && (
             <motion.div
               key="tray"
               initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0, y: -8 }}
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0, y: -8 }}
               transition={spring}
-              className="border-b border-border bg-muted/70 px-3 py-2"
+              className="border-b border-border bg-muted/50 px-3 py-2"
             >
               <div className="flex flex-wrap gap-2">
+                {courses.map((code, i) => (
+                  <motion.div
+                    key={code}
+                    layout
+                    initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-mono-course font-medium",
+                      CHIP_HUES[i % CHIP_HUES.length],
+                    )}
+                  >
+                    {code}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${code}`}
+                      className="rounded-md p-0.5 opacity-70 hover:opacity-100"
+                      onClick={() => removeCourse(code)}
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </motion.div>
+                ))}
                 {attachments.map((file, i) => (
                   <motion.div
                     key={`${file.name}-${i}`}
@@ -195,17 +352,35 @@ export function PromptInput({
           )}
         </AnimatePresence>
 
-        <div className="px-3 pt-3">
+        <div className="relative px-3 pt-3">
           <textarea
             ref={textareaRef}
             rows={1}
             disabled={disabled}
             value={value}
-            placeholder={placeholder}
+            placeholder={
+              courseNuggets && courses.length >= maxCourses
+                ? "Course limit reached"
+                : placeholder
+            }
             onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onBlur={() => {
+              setFocused(false);
+              window.setTimeout(() => setSuggestOpen(false), 120);
+            }}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
+              if (courseNuggets && (e.key === "Tab" || e.key === ",") && value.trim()) {
+                e.preventDefault();
+                if (suggestions[0]) addCourse(suggestions[0]);
+                else addCourse(value);
+                return;
+              }
+              if (courseNuggets && e.key === "Enter" && !e.shiftKey && suggestions[0] && value.trim()) {
+                e.preventDefault();
+                addCourse(suggestions[0]);
+                return;
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 submit();
@@ -220,6 +395,32 @@ export function PromptInput({
             }}
             className="max-h-40 w-full resize-none bg-transparent text-[15px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/80"
           />
+          <AnimatePresence>
+            {suggestOpen && suggestions.length > 0 && (
+              <motion.ul
+                role="listbox"
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="absolute left-2 right-2 top-full z-40 mt-1 max-h-48 overflow-auto rounded-xl border border-border bg-card py-1 shadow-lg"
+              >
+                {suggestions.map((c, idx) => (
+                  <li key={c}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={idx === 0}
+                      className="flex w-full px-3 py-2 text-left font-mono-course text-sm hover:bg-accent"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => addCourse(c)}
+                    >
+                      {c}
+                    </button>
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>
         </div>
 
         <motion.div
@@ -251,6 +452,7 @@ export function PromptInput({
 
           <div className="relative">
             <ToolbarButton
+              ref={modelBtnRef}
               label="Select term"
               onClick={() => {
                 setModelOpen((o) => !o);
@@ -273,8 +475,9 @@ export function PromptInput({
               </AnimatePresence>
               <ChevronDown className="size-3.5 opacity-60" />
             </ToolbarButton>
-            <Menu
+            <PortalMenu
               open={modelOpen}
+              anchorRef={modelBtnRef}
               onClose={() => setModelOpen(false)}
               items={models}
               value={model}
@@ -288,6 +491,7 @@ export function PromptInput({
 
           <div className="relative">
             <ToolbarButton
+              ref={effortBtnRef}
               label="Ranking emphasis"
               onClick={() => {
                 setEffortOpen((o) => !o);
@@ -310,8 +514,9 @@ export function PromptInput({
               </AnimatePresence>
               <ChevronDown className="size-3.5 opacity-60" />
             </ToolbarButton>
-            <Menu
+            <PortalMenu
               open={effortOpen}
+              anchorRef={effortBtnRef}
               onClose={() => setEffortOpen(false)}
               items={efforts}
               value={effort}
@@ -324,27 +529,6 @@ export function PromptInput({
           </div>
 
           <div className="ml-auto flex items-center gap-1">
-            <ToolbarButton
-              label={listening ? "Stop microphone preview" : "Microphone preview"}
-              onClick={() => setListening((v) => !v)}
-              disabled={disabled}
-              className={listening ? "bg-accent text-primary" : undefined}
-            >
-              {listening && !reduce ? (
-                <span className="flex h-4 items-end gap-0.5" aria-hidden>
-                  {bars.map((h, i) => (
-                    <span
-                      key={i}
-                      className="w-0.5 rounded-full bg-primary"
-                      style={{ height: `${Math.max(4, h * 14)}px` }}
-                    />
-                  ))}
-                </span>
-              ) : (
-                <Mic className="size-4" />
-              )}
-            </ToolbarButton>
-
             <motion.button
               type="button"
               aria-label="Send"
@@ -353,7 +537,7 @@ export function PromptInput({
               whileTap={reduce || !canSend ? undefined : { scale: 0.94 }}
               onClick={submit}
               className={cn(
-                "flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity",
+                "flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity shadow-[0_8px_20px_-10px_rgba(232,93,76,0.8)]",
                 !canSend && "opacity-40",
               )}
             >
@@ -380,21 +564,22 @@ export function PromptInput({
   );
 }
 
-function ToolbarButton({
-  children,
-  label,
-  onClick,
-  disabled,
-  className,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-}) {
+const ToolbarButton = React.forwardRef<
+  HTMLButtonElement,
+  {
+    children: React.ReactNode;
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    className?: string;
+  }
+>(function ToolbarButton(
+  { children, label, onClick, disabled, className },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       disabled={disabled}
@@ -407,15 +592,16 @@ function ToolbarButton({
       {children}
     </button>
   );
-}
+});
 
-function Menu({
+function PortalMenu({
   open,
   onClose,
   items,
   value,
   onSelect,
   reduce,
+  anchorRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -423,26 +609,51 @@ function Menu({
   value: string;
   onSelect: (value: string) => void;
   reduce: boolean;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
 }) {
+  const [pos, setPos] = React.useState<{ top: number; left: number; width: number } | null>(null);
+
+  React.useLayoutEffect(() => {
+    if (!open || !anchorRef.current) {
+      setPos(null);
+      return;
+    }
+    const rect = anchorRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.top - 8,
+      left: rect.left,
+      width: Math.max(rect.width, 160),
+    });
+  }, [open, anchorRef]);
+
   React.useEffect(() => {
     if (!open) return;
-    const onDoc = () => onClose();
+    const onDoc = (e: MouseEvent) => {
+      if (anchorRef.current?.contains(e.target as Node)) return;
+      onClose();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    // Defer so the opening click does not immediately close the menu.
+    const onScroll = () => onClose();
     const id = window.setTimeout(() => {
       window.addEventListener("click", onDoc);
     }, 0);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     return () => {
       window.clearTimeout(id);
       window.removeEventListener("click", onDoc);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
-  }, [open, onClose]);
+  }, [open, onClose, anchorRef]);
 
-  return (
+  if (!open || !pos || typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.ul
@@ -451,7 +662,15 @@ function Menu({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.9 }}
-          className="absolute bottom-full left-0 z-20 mb-1.5 min-w-[10rem] origin-bottom overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg"
+          style={{
+            position: "fixed",
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
+            transform: "translateY(-100%)",
+            zIndex: 80,
+          }}
+          className="origin-bottom overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           {items.map((item) => (
@@ -472,7 +691,8 @@ function Menu({
           ))}
         </motion.ul>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
