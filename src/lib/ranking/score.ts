@@ -187,9 +187,9 @@ export function personalScore(
   let score =
     ((quality * wQ + easiness * wE + wtaNorm * wW) / wSum) * 20;
 
-  // Inferred RMP gets lower weight — never treated as confirmed
+  // Inferred RMP is a soft signal only (never confirmed), slight discount
   if (options?.inferredOnly) {
-    score *= 0.35;
+    score *= 0.75;
   }
 
   const base = baseRank ? num(baseRank.score, 0) : 0;
@@ -199,7 +199,12 @@ export function personalScore(
 
   // Soft penalty so Staff/TBA still appear; lighter when an inferred name exists.
   if (options?.staff) {
-    score -= options?.inferredOnly ? 6 : 15;
+    score -= options?.inferredOnly ? 4 : 10;
+  }
+
+  // Modest baseline so Staff+inferred without RMP numbers are still rankable
+  if (options?.staff && options?.inferredOnly && score < 12) {
+    score = Math.max(score, 12);
   }
 
   if (!withinTimeWindow(section, prefs.earliestTime, prefs.latestTime)) {
@@ -224,8 +229,13 @@ export function personalScore(
     bits.push(`course reviews ${num(courseStat.course_num_ratings)}`);
   }
   if (prefs.preferDays.length) bits.push("day prefs applied");
-  if (options?.staff) bits.push("Staff/TBA ranked lower");
-  if (options?.inferredOnly) bits.push("inferred instructor only");
+  if (options?.staff && options?.inferredOnly) {
+    bits.push("Listed as Staff; inferred instructor");
+  } else if (options?.staff) {
+    bits.push("Staff/TBA ranked slightly lower");
+  } else if (options?.inferredOnly) {
+    bits.push("inferred instructor only");
+  }
 
   return {
     score: Math.round(score * 10) / 10,
@@ -325,20 +335,38 @@ export function recommendCourses(
     });
 
     options.sort((a, b) => b.score - a.score);
-    const top = options.slice(0, 3).map((opt, i) => ({
+
+    // Always keep the best Staff+inferred visible (do not hide behind confirmed-only top 3)
+    let top = options.slice(0, 3);
+    const bestInferredStaff = options.find(
+      (o) => o.flags.staff && o.inferredInstructor,
+    );
+    if (
+      bestInferredStaff &&
+      !top.some((o) => String(o.section.class_nbr) === String(bestInferredStaff.section.class_nbr))
+    ) {
+      if (top.length < 3) {
+        top = [...top, bestInferredStaff];
+      } else {
+        top = [...top.slice(0, 2), bestInferredStaff];
+      }
+      top.sort((a, b) => b.score - a.score);
+    }
+
+    const ranked = top.map((opt, i) => ({
       ...opt,
       rank: i + 1,
       rankLabel: i === 0 ? "1st option" : i === 1 ? "2nd option" : "3rd option",
     }));
 
-    if (top[0]) {
-      for (let i = 1; i < top.length; i++) {
-        const conflicts = findConflicts(top[i].section, [top[0].section]);
-        if (conflicts.length) top[i].flags.conflict = true;
+    if (ranked[0]) {
+      for (let i = 1; i < ranked.length; i++) {
+        const conflicts = findConflicts(ranked[i].section, [ranked[0].section]);
+        if (conflicts.length) ranked[i].flags.conflict = true;
       }
     }
 
-    results.push({ courseCode: code, options: top });
+    results.push({ courseCode: code, options: ranked });
   }
 
   return results;

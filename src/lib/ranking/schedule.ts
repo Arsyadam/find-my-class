@@ -1,5 +1,6 @@
 import { num } from "@/lib/sheets";
 import { findConflicts } from "./conflicts";
+import { inferredStaffNote } from "./inferredNote";
 import type {
   BuiltSchedule,
   CourseRecommendation,
@@ -45,11 +46,16 @@ export function buildSchedule(
         continue;
       }
 
+      const professor =
+        opt.flags.staff && opt.inferredInstructor
+          ? inferredStaffNote(opt.inferredInstructor)
+          : opt.professorName;
+
       blocks.push({
         courseCode: rec.courseCode,
         section: opt.section.section,
         classNbr: String(opt.section.class_nbr),
-        professor: opt.professorName,
+        professor,
         days: opt.section.days,
         startTime: opt.section.start_time,
         endTime: opt.section.end_time,
