@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { FileUp, Keyboard } from "lucide-react";
 import {
@@ -20,49 +20,19 @@ type Props = {
   busy?: boolean;
 };
 
-function parseCourses(text: string): string[] {
-  return text
-    .split(/[\n,;]+/)
-    .map((s) => s.trim().replace(/\s+/g, " "))
-    .filter(Boolean)
-    .slice(0, 4);
-}
-
 export function ChooseStep({ onBack, onContinue, busy }: Props) {
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<"pdf" | "typed" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [termHint, setTermHint] = useState("2271");
-  const [courseSuggestions, setCourseSuggestions] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (mode !== "typed") return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/courses?term=${encodeURIComponent(termHint)}`);
-        const json = await res.json();
-        if (!cancelled && Array.isArray(json.courses)) {
-          setCourseSuggestions(json.courses);
-        }
-      } catch {
-        if (!cancelled) setCourseSuggestions([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, termHint]);
-
-  function handleSubmit(message: string, meta: PromptSubmitMeta) {
+  function handleSubmit(_message: string, meta: PromptSubmitMeta) {
     setError(null);
     const effort = (meta.effort as EffortLevel) || "medium";
     const termCode = meta.model || "2271";
-    setTermHint(termCode);
 
-    if (mode === "pdf" || meta.attachments[0]) {
+    if (mode === "pdf") {
       if (!meta.attachments[0]) {
-        setError("Attach your Educational Plan PDF to continue.");
+        setError("Attach a PDF Educational Plan to continue.");
         return;
       }
       onContinue({
@@ -74,14 +44,9 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
       return;
     }
 
-    const courses =
-      meta.courses?.length ? meta.courses.slice(0, 4) : parseCourses(message);
+    const courses = (meta.courses.length ? meta.courses : []).slice(0, 4);
     if (!courses.length) {
-      setError("Type or pick up to 4 course codes.");
-      return;
-    }
-    if (courses.length > 4) {
-      setError("Enter at most 4 courses.");
+      setError("Add up to 4 course codes from the catalog.");
       return;
     }
     onContinue({ mode: "typed", courses, termCode, effort });
@@ -94,11 +59,7 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
           Choose how to start
         </h1>
         <p className="text-muted-foreground">
-          {mode === null
-            ? "Pick one path. Upload an Educational Plan PDF, or type up to four course codes."
-            : mode === "pdf"
-              ? "Drop or attach your Educational Plan PDF, pick a term, then send."
-              : "Search sheet courses, tap a suggestion to add a chip (max 4), then send."}
+          Upload an Educational Plan PDF, or type up to four course codes.
         </p>
       </header>
 
@@ -114,7 +75,7 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
             {
               id: "typed" as const,
               title: "Type courses",
-              body: "Enter codes like ENGL 128 or POLS& 202.",
+              body: "Pick codes like ENGL 128 or POLS& 202.",
               icon: Keyboard,
             },
           ] as const
@@ -129,19 +90,14 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
               transition={
                 reduce
                   ? { duration: 0 }
-                  : {
-                      delay: i * 0.06,
-                      type: "spring",
-                      stiffness: 280,
-                      damping: 28,
-                    }
+                  : { delay: i * 0.06, type: "spring", stiffness: 280, damping: 28 }
               }
               onClick={() => {
                 setMode(opt.id);
                 setError(null);
               }}
               className={cn(
-                "rounded-2xl border border-border bg-card/80 px-4 py-4 text-left transition-colors hover:bg-accent/60",
+                "rounded-2xl border border-border glass-shell px-4 py-4 text-left transition-colors hover:bg-accent/60",
                 mode === opt.id && "border-primary ring-2 ring-ring/30",
               )}
             >
@@ -153,11 +109,11 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
         })}
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {mode && (
           <motion.div
             key={mode}
-            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
             transition={
@@ -170,21 +126,14 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
               disabled={busy}
               error={error}
               onError={setError}
-              mode={mode}
               models={[...TERM_OPTIONS]}
-              defaultModel={termHint}
-              courseSuggestions={courseSuggestions}
-              maxCourses={4}
-              onModelChange={setTermHint}
+              courseNuggets={mode === "typed"}
               placeholder={
                 mode === "pdf"
-                  ? "Drop or attach your Educational Plan PDF…"
+                  ? "Attach or drop your Educational Plan PDF, pick a term, then send…"
                   : "Start typing a course code…"
               }
-              onSubmit={(message, meta) => {
-                setTermHint(meta.model || termHint);
-                handleSubmit(message, meta);
-              }}
+              onSubmit={handleSubmit}
             />
           </motion.div>
         )}
@@ -193,15 +142,8 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => {
-            if (mode) {
-              setMode(null);
-              setError(null);
-              return;
-            }
-            onBack();
-          }}
-          className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
+          onClick={onBack}
+          className="rounded-full border border-border bg-card/70 px-4 py-2 text-sm font-medium hover:bg-accent"
         >
           Back
         </button>

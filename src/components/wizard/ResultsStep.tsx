@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import type { BuiltSchedule, CourseRecommendation } from "@/lib/ranking";
+import { inferredStaffNote } from "@/lib/ranking/inferredNote";
 import { DownloadPlanPdf } from "@/components/DownloadPlanPdf";
 import { Disclaimer } from "@/components/Disclaimer";
 import { cn } from "@/lib/utils";
@@ -86,7 +87,7 @@ export function ResultsStep({
                           damping: 28,
                         }
                   }
-                  className="rounded-2xl border border-border bg-card p-4"
+                  className="rounded-2xl border border-border glass-shell p-4"
                 >
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <motion.span
@@ -109,15 +110,9 @@ export function ResultsStep({
                     </span>
                   </div>
                   <dl className="grid gap-1 text-sm sm:grid-cols-2">
-                    <div className="sm:col-span-2">
+                    <div>
                       <dt className="inline text-muted-foreground">Professor: </dt>
-                      <dd className="inline">
-                        {opt.flags.staff && opt.inferredInstructor
-                          ? `Listed as Staff; likely ${opt.inferredInstructor}`
-                          : opt.flags.inferred && opt.inferredInstructor
-                            ? `Likely ${opt.inferredInstructor} (not confirmed)`
-                            : opt.professorName}
-                      </dd>
+                      <dd className="inline">{opt.professorName}</dd>
                     </div>
                     <div>
                       <dt className="inline text-muted-foreground">Mode: </dt>
@@ -126,7 +121,8 @@ export function ResultsStep({
                     <div>
                       <dt className="inline text-muted-foreground">When: </dt>
                       <dd className="inline">
-                        {opt.section.days} {opt.section.start_time}-
+                        {opt.section.days} {opt.section.start_time}
+                        {" to "}
                         {opt.section.end_time}
                       </dd>
                     </div>
@@ -152,11 +148,15 @@ export function ResultsStep({
                       </dd>
                     </div>
                   </dl>
+                  {opt.flags.inferred && opt.inferredInstructor ? (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {inferredStaffNote(opt.inferredInstructor)}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm text-muted-foreground">{opt.reason}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {opt.flags.tba && <Flag>TBA / ARR</Flag>}
                     {opt.flags.staff && <Flag>Staff/TBA</Flag>}
-                    {opt.flags.inferred && <Flag>Inferred instructor</Flag>}
                     {opt.flags.full && <Flag>Full</Flag>}
                     {opt.flags.conflict && <Flag>Conflicts w/ 1st</Flag>}
                     {opt.flags.waitlist && <Flag>Waitlist</Flag>}
@@ -200,7 +200,7 @@ export function ResultsStep({
               ? { duration: 0 }
               : { delay: 0.12, type: "spring", stiffness: 260, damping: 28 }
           }
-          className="space-y-3 rounded-2xl border border-border bg-card p-5"
+          className="space-y-3 rounded-2xl border border-border glass-shell p-5"
         >
           <h2 className="font-display text-xl font-semibold">
             Conflict-free schedule
@@ -220,8 +220,8 @@ export function ResultsStep({
                 className="rounded-xl bg-muted/70 px-3 py-2"
               >
                 <strong className="font-mono-course">{b.courseCode}</strong> sec{" "}
-                {b.section} (#{b.classNbr}). {b.professor}: {b.days}{" "}
-                {b.startTime}-{b.endTime} @ {b.location}{" "}
+                {b.section} (#{b.classNbr}), {b.professor}: {b.days}{" "}
+                {b.startTime} to {b.endTime} @ {b.location}{" "}
                 <span className="text-muted-foreground">
                   (option {b.fallbackRank})
                 </span>

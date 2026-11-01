@@ -3,3 +3,4 @@ export * from "./time";
 export * from "./conflicts";
 export * from "./score";
 export * from "./schedule";
+export * from "./inferredNote";

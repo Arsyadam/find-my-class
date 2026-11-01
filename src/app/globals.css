@@ -2,22 +2,29 @@
 @import "tw-animate-css";
 
 :root {
-  /* Soft multi-hue page; readable coral primary (not sage-monochrome) */
-  --background: #fff7f2;
-  --foreground: #1c1520;
-  --card: rgba(255, 255, 255, 0.82);
-  --card-foreground: #1c1520;
-  --primary: #c24a32;
-  --primary-foreground: #fff8f5;
+  /* Colorful clipboard field: orange → peach → pink → lavender → sky */
+  --background: #fff5f0;
+  --foreground: #2a1f2d;
+  --card: #ffffff;
+  --card-foreground: #2a1f2d;
+  --primary: #e85d4c;
+  --primary-foreground: #fffaf8;
   --accent: #ffe4d6;
-  --accent-foreground: #1c1520;
-  --muted: #f3e8ef;
-  --muted-foreground: #5a4a58;
-  --border: #e8cfc4;
-  --ring: #e07a5f;
+  --accent-foreground: #2a1f2d;
+  --muted: #f3e8f4;
+  --muted-foreground: #5c4d5e;
+  --border: #f0cfc4;
+  --ring: #7eb8e8;
   --destructive: #b42318;
   --destructive-foreground: #fef2f2;
   --radius: 0.875rem;
+
+  --hue-orange: #ff9a5c;
+  --hue-peach: #ffc4a8;
+  --hue-pink: #ff9ec7;
+  --hue-lavender: #c4b0e8;
+  --hue-sky: #87ceeb;
+  --glass: rgba(255, 255, 255, 0.82);
 }
 
 @theme inline {
@@ -46,14 +53,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), "DM Sans", sans-serif;
   background-color: var(--background);
-  /* Clipboard-colorful mesh: orange → warm → pink → lavender → sky */
   background-image:
-    radial-gradient(980px 620px at 8% -6%, #ffb347 0%, transparent 55%),
-    radial-gradient(860px 540px at 88% 4%, #ff9ec7 0%, transparent 52%),
-    radial-gradient(720px 520px at 52% 108%, #b8a6ff 0%, transparent 55%),
-    radial-gradient(640px 420px at 100% 72%, #7ec8ff 0%, transparent 50%),
-    radial-gradient(580px 380px at -4% 68%, #ffd6a5 0%, transparent 48%),
-    linear-gradient(168deg, #fff4ea 0%, #ffe8f2 42%, #eef3ff 100%);
+    radial-gradient(1100px 680px at 8% -12%, var(--hue-orange) 0%, transparent 58%),
+    radial-gradient(920px 560px at 92% 0%, var(--hue-peach) 0%, transparent 55%),
+    radial-gradient(780px 520px at 48% 28%, var(--hue-pink) 0%, transparent 52%),
+    radial-gradient(980px 640px at 78% 92%, var(--hue-lavender) 0%, transparent 55%),
+    radial-gradient(860px 520px at 6% 88%, var(--hue-sky) 0%, transparent 50%),
+    linear-gradient(168deg, #fff5f0 0%, #ffe8f2 42%, #ebe8ff 72%, #e6f4fb 100%);
   background-attachment: fixed;
 }
 
@@ -63,6 +69,29 @@ body {
 
 .font-mono-course {
   font-family: var(--font-mono), "IBM Plex Mono", monospace;
+}
+
+.glass-shell {
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.chip-hue-orange {
+  background: color-mix(in srgb, var(--hue-orange) 28%, white);
+  color: #7a3a12;
+}
+.chip-hue-pink {
+  background: color-mix(in srgb, var(--hue-pink) 32%, white);
+  color: #7a2450;
+}
+.chip-hue-lavender {
+  background: color-mix(in srgb, var(--hue-lavender) 36%, white);
+  color: #4a3870;
+}
+.chip-hue-sky {
+  background: color-mix(in srgb, var(--hue-sky) 34%, white);
+  color: #1f4f70;
 }
 
 @media (prefers-reduced-motion: reduce) {

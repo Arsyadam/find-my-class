@@ -197,9 +197,9 @@ export function personalScore(
 
   score += dayPreferenceScore(section, prefs.preferDays, prefs.avoidDays);
 
-  // Slight penalty vs confirmed named instructors; still recommend Staff+inferred
+  // Soft penalty so Staff/TBA still appear; lighter when an inferred name exists.
   if (options?.staff) {
-    score -= 4;
+    score -= options?.inferredOnly ? 4 : 10;
   }
 
   // Modest baseline so Staff+inferred without RMP numbers are still rankable

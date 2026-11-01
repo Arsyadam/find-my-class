@@ -1,5 +1,6 @@
 import { num } from "@/lib/sheets";
 import { findConflicts } from "./conflicts";
+import { inferredStaffNote } from "./inferredNote";
 import type {
   BuiltSchedule,
   CourseRecommendation,
@@ -47,7 +48,7 @@ export function buildSchedule(
 
       const professor =
         opt.flags.staff && opt.inferredInstructor
-          ? `Listed as Staff; likely ${opt.inferredInstructor}`
+          ? inferredStaffNote(opt.inferredInstructor)
           : opt.professorName;
 
       blocks.push({
