@@ -17,6 +17,7 @@ export default function PromptDemoPage() {
           message,
           model: meta.model,
           effort: meta.effort,
+          courses: meta.courses,
           files: meta.attachments.map((f) => f.name),
         },
         null,
@@ -29,10 +30,12 @@ export default function PromptDemoPage() {
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col justify-center gap-6 px-4 py-16">
       <h1 className="font-display text-3xl font-semibold">PromptInput demo</h1>
       <p className="text-sm text-muted-foreground">
-        PDF attach only · term picker · ranking emphasis · motion intact
+        PDF drag-and-drop, term picker, course chips. No microphone.
       </p>
       <PromptInput
         models={[...TERM_OPTIONS]}
+        mode="both"
+        courseSuggestions={["ENGL 128", "POLS& 202", "CHEM& 161", "ENGR 100"]}
         placeholder="ENGL 128, POLS& 202…"
         onSubmit={onSubmit}
       />

@@ -86,7 +86,7 @@ export function DownloadPlanPdf({
 
       write("Plan Your Best Quarter in GRC", { size: 18, bold: true, color: green });
       write(termLabel, { size: 12, color: mute });
-      write(`Courses: ${courseCodes.join(", ") || "—"}`, { size: 11 });
+      write(`Courses: ${courseCodes.join(", ") || "n/a"}`, { size: 11 });
       y -= 8;
 
       for (const rec of recommendations) {
@@ -96,12 +96,16 @@ export function DownloadPlanPdf({
           write("No ranked sections available.", { size: 10, color: mute });
         }
         for (const opt of rec.options) {
+          const profLabel =
+            opt.flags.staff && opt.inferredInstructor
+              ? `Listed as Staff; likely ${opt.inferredInstructor}`
+              : opt.professorName;
           write(
-            `${opt.rankLabel} — Sec ${opt.section.section} (#${opt.section.class_nbr}) · ${opt.professorName}`,
+            `${opt.rankLabel}. Sec ${opt.section.section} (#${opt.section.class_nbr}) · ${profLabel}`,
             { size: 11, bold: true },
           );
           write(
-            `${opt.section.days} ${opt.section.start_time}–${opt.section.end_time} · ${opt.section.instruction_mode} · ${opt.section.location || "—"}`,
+            `${opt.section.days} ${opt.section.start_time}-${opt.section.end_time} · ${opt.section.instruction_mode} · ${opt.section.location || "n/a"}`,
             { size: 10, color: mute },
           );
           if (opt.rmpUrl) write(`RMP: ${opt.rmpUrl}`, { size: 9, color: mute });
@@ -116,7 +120,7 @@ export function DownloadPlanPdf({
         write(`Total credits: ${schedule.totalCredits}`, { size: 10, color: mute });
         for (const b of schedule.blocks) {
           write(
-            `${b.courseCode} sec ${b.section} — ${b.professor}: ${b.days} ${b.startTime}–${b.endTime} @ ${b.location}`,
+            `${b.courseCode} sec ${b.section}. ${b.professor}: ${b.days} ${b.startTime}-${b.endTime} @ ${b.location}`,
             { size: 10 },
           );
         }
@@ -129,7 +133,7 @@ export function DownloadPlanPdf({
       }
 
       write(
-        "Unofficial student tool — verify all sections in ctcLink before enrolling.",
+        "Unofficial student tool. Verify all sections in ctcLink before enrolling.",
         { size: 9, color: mute },
       );
 

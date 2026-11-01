@@ -153,6 +153,19 @@ describe("recommendCourses + schedule fallback", () => {
     expect(top.flags.inferred).toBe(false);
   });
 
+  it("still recommends Staff sections that have an inferred instructor", () => {
+    const staffSections = fixture.sections.filter(
+      (s) => s.course_code === "ENGL 128" && s.staff_tba,
+    );
+    expect(staffSections.length).toBeGreaterThan(0);
+    const recs = recommendCourses(["ENGL 128"], fixture, basePrefs);
+    const staffOpt = recs[0].options.find((o) => o.flags.staff);
+    expect(staffOpt).toBeTruthy();
+    expect(staffOpt!.inferredInstructor).toBeTruthy();
+    expect(staffOpt!.flags.inferred).toBe(true);
+    expect(staffOpt!.reason.toLowerCase()).toMatch(/staff|inferred/);
+  });
+
   it("falls back to 2nd/3rd when 1st conflicts in schedule builder", () => {
     const recs = recommendCourses(
       ["ENGL 128", "ENGR 100"],

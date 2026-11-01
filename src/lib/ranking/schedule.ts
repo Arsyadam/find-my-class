@@ -45,11 +45,16 @@ export function buildSchedule(
         continue;
       }
 
+      const professor =
+        opt.flags.staff && opt.inferredInstructor
+          ? `Listed as Staff; likely ${opt.inferredInstructor}`
+          : opt.professorName;
+
       blocks.push({
         courseCode: rec.courseCode,
         section: opt.section.section,
         classNbr: String(opt.section.class_nbr),
-        professor: opt.professorName,
+        professor,
         days: opt.section.days,
         startTime: opt.section.start_time,
         endTime: opt.section.end_time,

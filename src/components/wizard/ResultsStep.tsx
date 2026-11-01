@@ -109,13 +109,14 @@ export function ResultsStep({
                     </span>
                   </div>
                   <dl className="grid gap-1 text-sm sm:grid-cols-2">
-                    <div>
+                    <div className="sm:col-span-2">
                       <dt className="inline text-muted-foreground">Professor: </dt>
                       <dd className="inline">
-                        {opt.professorName}
-                        {opt.flags.inferred && opt.inferredInstructor
-                          ? ` (likely: ${opt.inferredInstructor})`
-                          : ""}
+                        {opt.flags.staff && opt.inferredInstructor
+                          ? `Listed as Staff; likely ${opt.inferredInstructor}`
+                          : opt.flags.inferred && opt.inferredInstructor
+                            ? `Likely ${opt.inferredInstructor} (not confirmed)`
+                            : opt.professorName}
                       </dd>
                     </div>
                     <div>
@@ -125,12 +126,13 @@ export function ResultsStep({
                     <div>
                       <dt className="inline text-muted-foreground">When: </dt>
                       <dd className="inline">
-                        {opt.section.days} {opt.section.start_time}–{opt.section.end_time}
+                        {opt.section.days} {opt.section.start_time}-
+                        {opt.section.end_time}
                       </dd>
                     </div>
                     <div>
                       <dt className="inline text-muted-foreground">Where: </dt>
-                      <dd className="inline">{opt.section.location || "—"}</dd>
+                      <dd className="inline">{opt.section.location || "n/a"}</dd>
                     </div>
                     <div>
                       <dt className="inline text-muted-foreground">Seats: </dt>
@@ -218,8 +220,8 @@ export function ResultsStep({
                 className="rounded-xl bg-muted/70 px-3 py-2"
               >
                 <strong className="font-mono-course">{b.courseCode}</strong> sec{" "}
-                {b.section} (#{b.classNbr}) — {b.professor}: {b.days}{" "}
-                {b.startTime}–{b.endTime} @ {b.location}{" "}
+                {b.section} (#{b.classNbr}). {b.professor}: {b.days}{" "}
+                {b.startTime}-{b.endTime} @ {b.location}{" "}
                 <span className="text-muted-foreground">
                   (option {b.fallbackRank})
                 </span>

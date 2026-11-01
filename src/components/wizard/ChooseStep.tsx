@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { FileUp, Keyboard } from "lucide-react";
 import {
   PromptInput,
@@ -32,13 +32,39 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<"pdf" | "typed" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [termHint, setTermHint] = useState("2271");
+  const [courseSuggestions, setCourseSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (mode !== "typed") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/courses?term=${encodeURIComponent(termHint)}`);
+        const json = await res.json();
+        if (!cancelled && Array.isArray(json.courses)) {
+          setCourseSuggestions(json.courses);
+        }
+      } catch {
+        if (!cancelled) setCourseSuggestions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, termHint]);
 
   function handleSubmit(message: string, meta: PromptSubmitMeta) {
     setError(null);
     const effort = (meta.effort as EffortLevel) || "medium";
     const termCode = meta.model || "2271";
+    setTermHint(termCode);
 
-    if (meta.attachments[0]) {
+    if (mode === "pdf" || meta.attachments[0]) {
+      if (!meta.attachments[0]) {
+        setError("Attach your Educational Plan PDF to continue.");
+        return;
+      }
       onContinue({
         mode: "pdf",
         file: meta.attachments[0],
@@ -48,9 +74,10 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
       return;
     }
 
-    const courses = parseCourses(message);
+    const courses =
+      meta.courses?.length ? meta.courses.slice(0, 4) : parseCourses(message);
     if (!courses.length) {
-      setError("Attach a PDF or type up to 4 course codes.");
+      setError("Type or pick up to 4 course codes.");
       return;
     }
     if (courses.length > 4) {
@@ -67,7 +94,11 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
           Choose how to start
         </h1>
         <p className="text-muted-foreground">
-          Upload an Educational Plan PDF, or type up to four course codes.
+          {mode === null
+            ? "Pick one path. Upload an Educational Plan PDF, or type up to four course codes."
+            : mode === "pdf"
+              ? "Drop or attach your Educational Plan PDF, pick a term, then send."
+              : "Search sheet courses, tap a suggestion to add a chip (max 4), then send."}
         </p>
       </header>
 
@@ -76,7 +107,7 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
           [
             {
               id: "pdf" as const,
-              title: "Upload Edplan PDF",
+              title: "Upload Edplan",
               body: "Parse Winter / Spring rows from your plan.",
               icon: FileUp,
             },
@@ -98,9 +129,17 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
               transition={
                 reduce
                   ? { duration: 0 }
-                  : { delay: i * 0.06, type: "spring", stiffness: 280, damping: 28 }
+                  : {
+                      delay: i * 0.06,
+                      type: "spring",
+                      stiffness: 280,
+                      damping: 28,
+                    }
               }
-              onClick={() => setMode(opt.id)}
+              onClick={() => {
+                setMode(opt.id);
+                setError(null);
+              }}
               className={cn(
                 "rounded-2xl border border-border bg-card/80 px-4 py-4 text-left transition-colors hover:bg-accent/60",
                 mode === opt.id && "border-primary ring-2 ring-ring/30",
@@ -114,23 +153,54 @@ export function ChooseStep({ onBack, onContinue, busy }: Props) {
         })}
       </div>
 
-      <PromptInput
-        disabled={busy}
-        error={error}
-        onError={setError}
-        models={[...TERM_OPTIONS]}
-        placeholder={
-          mode === "pdf"
-            ? "Attach your Educational Plan PDF, pick a term, then send…"
-            : "ENGL 128, POLS& 202…"
-        }
-        onSubmit={handleSubmit}
-      />
+      <AnimatePresence mode="wait">
+        {mode && (
+          <motion.div
+            key={mode}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            transition={
+              reduce
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 280, damping: 28 }
+            }
+          >
+            <PromptInput
+              disabled={busy}
+              error={error}
+              onError={setError}
+              mode={mode}
+              models={[...TERM_OPTIONS]}
+              defaultModel={termHint}
+              courseSuggestions={courseSuggestions}
+              maxCourses={4}
+              onModelChange={setTermHint}
+              placeholder={
+                mode === "pdf"
+                  ? "Drop or attach your Educational Plan PDF…"
+                  : "Start typing a course code…"
+              }
+              onSubmit={(message, meta) => {
+                setTermHint(meta.model || termHint);
+                handleSubmit(message, meta);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => {
+            if (mode) {
+              setMode(null);
+              setError(null);
+              return;
+            }
+            onBack();
+          }}
           className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
         >
           Back

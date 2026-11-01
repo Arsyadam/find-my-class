@@ -217,7 +217,7 @@ export function TimeRangeDial({ earliest, latest, onChange, className }: Props) 
           textAnchor="middle"
           className="fill-[var(--muted-foreground)] text-[11px]"
         >
-          {formatClock(earliest)} – {formatClock(latest)}
+          {formatClock(earliest)} - {formatClock(latest)}
         </text>
       </svg>
       <p className="text-center text-sm text-muted-foreground">

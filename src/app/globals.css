@@ -2,18 +2,19 @@
 @import "tw-animate-css";
 
 :root {
-  --background: #f3f6f2;
-  --foreground: #14201a;
-  --card: #ffffff;
-  --card-foreground: #14201a;
-  --primary: #1f6b4a;
-  --primary-foreground: #f5fbf7;
-  --accent: #e4f0e8;
-  --accent-foreground: #14201a;
-  --muted: #e7eee8;
-  --muted-foreground: #4a5c52;
-  --border: #c9d6ce;
-  --ring: #2f8f62;
+  /* Soft multi-hue page; readable coral primary (not sage-monochrome) */
+  --background: #fff7f2;
+  --foreground: #1c1520;
+  --card: rgba(255, 255, 255, 0.82);
+  --card-foreground: #1c1520;
+  --primary: #c24a32;
+  --primary-foreground: #fff8f5;
+  --accent: #ffe4d6;
+  --accent-foreground: #1c1520;
+  --muted: #f3e8ef;
+  --muted-foreground: #5a4a58;
+  --border: #e8cfc4;
+  --ring: #e07a5f;
   --destructive: #b42318;
   --destructive-foreground: #fef2f2;
   --radius: 0.875rem;
@@ -45,11 +46,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), "DM Sans", sans-serif;
   background-color: var(--background);
+  /* Clipboard-colorful mesh: orange → warm → pink → lavender → sky */
   background-image:
-    radial-gradient(900px 520px at 12% -8%, #d5e8da 0%, transparent 58%),
-    radial-gradient(780px 480px at 92% 8%, #e8f1ea 0%, transparent 55%),
-    radial-gradient(700px 420px at 50% 110%, #ebe6d8 0%, transparent 50%),
-    linear-gradient(168deg, #f3f6f2 0%, #eef3ec 48%, #e6efe8 100%);
+    radial-gradient(980px 620px at 8% -6%, #ffb347 0%, transparent 55%),
+    radial-gradient(860px 540px at 88% 4%, #ff9ec7 0%, transparent 52%),
+    radial-gradient(720px 520px at 52% 108%, #b8a6ff 0%, transparent 55%),
+    radial-gradient(640px 420px at 100% 72%, #7ec8ff 0%, transparent 50%),
+    radial-gradient(580px 380px at -4% 68%, #ffd6a5 0%, transparent 48%),
+    linear-gradient(168deg, #fff4ea 0%, #ffe8f2 42%, #eef3ff 100%);
   background-attachment: fixed;
 }
 
