@@ -106,7 +106,7 @@ export function ReviewStep({
         ))}
         {!rows.length && (
           <li className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-muted-foreground">
-            No courses yet — add up to four.
+            No courses yet. Add up to four.
           </li>
         )}
       </ul>

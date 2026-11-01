@@ -197,8 +197,9 @@ export function personalScore(
 
   score += dayPreferenceScore(section, prefs.preferDays, prefs.avoidDays);
 
+  // Soft penalty so Staff/TBA still appear; lighter when an inferred name exists.
   if (options?.staff) {
-    score -= 15;
+    score -= options?.inferredOnly ? 6 : 15;
   }
 
   if (!withinTimeWindow(section, prefs.earliestTime, prefs.latestTime)) {

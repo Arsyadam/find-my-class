@@ -41,7 +41,7 @@ async function fetchAppsScriptApi(options: {
   const data = JSON.parse(text) as SheetsApiResponse & { error?: string };
   if (data.error === "unauthorized") {
     throw new Error(
-      "Sheets API unauthorized — SHEETS_API_TOKEN does not match script property",
+      "Sheets API unauthorized: SHEETS_API_TOKEN does not match script property",
     );
   }
   if (data.error && !data.sections?.length) {

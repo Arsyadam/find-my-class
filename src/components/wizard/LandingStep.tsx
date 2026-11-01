@@ -17,8 +17,8 @@ export function LandingStep({ onStart }: Props) {
           Plan Your Best Quarter in GRC
         </h1>
         <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-          Rank sections and professors from your Educational Plan — or type up
-          to four courses — for Winter or Spring 2027.
+          Rank sections and professors from your Educational Plan, or type up
+          to four courses, for Winter or Spring 2027.
         </p>
         <motion.button
           type="button"
@@ -35,9 +35,13 @@ export function LandingStep({ onStart }: Props) {
               ? undefined
               : { duration: 3, repeat: Infinity, ease: "easeInOut" }
           }
-          whileHover={reduce ? undefined : { y: -2, boxShadow: "0 14px 36px -18px rgba(31,107,74,0.7)" }}
+          whileHover={
+            reduce
+              ? undefined
+              : { y: -2, boxShadow: "0 14px 36px -18px rgba(232,93,76,0.65)" }
+          }
           whileTap={reduce ? undefined : { scale: 0.97 }}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-[0_10px_28px_-14px_rgba(31,107,74,0.65)]"
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-[0_10px_28px_-14px_rgba(232,93,76,0.6)]"
         >
           <MapPinned className="size-5" aria-hidden />
           Find My Class

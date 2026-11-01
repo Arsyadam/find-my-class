@@ -48,7 +48,7 @@ export function normalizeCourseTitle(raw: string): NormalizedCourse {
       subject: null,
       catalogNbr: null,
       needsChoice: true,
-      notes: ["placeholder — pick a specific course"],
+      notes: ["placeholder: pick a specific course"],
     };
   }
 
@@ -70,7 +70,7 @@ export function normalizeCourseTitle(raw: string): NormalizedCourse {
       subject: null,
       catalogNbr: null,
       needsChoice: true,
-      notes: ["unrecognized title — choose a ctcLink course code"],
+      notes: ["unrecognized title: choose a ctcLink course code"],
     };
   }
 
